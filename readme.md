@@ -13,11 +13,12 @@
 ## Good
 * compiles to one .exe
 * feature heavy std
-* gorutines
+* goroutines
 
 ## Bad
 * imports can change behaviour
-* bad ecosystem
+* nil
+* error handling (errors as values are cool tho)
 
 # Rust
 ## Good
@@ -52,79 +53,88 @@
 # KoSALANG
 ## Should have/be...
 * functional
-* MONADS?!?!
-* readable syntax (C inspired)
 * compiled to an executable
 * types
+* traits
 * modules
 * feature heavy std
-* easy to understand imports (using)
-* enums
+* easy to understand imports (using and pub)
 * some sort of autofree memory
-* macros (functions that run on compiletime and runtime.)
-* awesome tooling (lsp the quality of Pylance)
+* awesome tooling
+
+# Ideas
 
 # Examples
-## Readable syntax (C inspired)
-### Struct definition
-```
-struct person {
-    int age,
-    str name,
-    @impl
-    void greet (person self) {
-        IO.log("Hi! My name is {} and i am {} years old.", self.name, self.age)
-    }
-}
+Examples arent valid syntax (for now)
+## Struct definition
+```python
+# Make a "class"
 
-person marek = person{"age": 15, "name": "Marek Pokorný"}
-marek.greet()
+struct Person:
+    string name
+
+greet(Person p):
+    IO.log("Hello, my name is", p.name)
+
+mark = Person(name: "Mark")
+mark.greet()
+
+# mark.greet() is the same as greet(mark)
+# Maybe change this to a reciever?
 ```
 ## Modules
-```
-module Math {
-    num sum(num a, num b) {
+```python
+module Math:
+    int sum(int a, int b):
         a + b
-    }    
-}
 
-Math::sum(1, 2)
+three = Math.sum(1, 2)
 ```
 ## Easy to understand imports (using and pub)
-```
-# math.kosa
-pub module Math {
-    pub num sum(num a, num b) {
-        a + b
-    }    
-}
-# main.kosa
-using math::Math
-Math::sum(1, 2)
+```python
+# Uses the Math module from earlier
+# Makes the Math module available in scope
+using Math
+
+three = Math.sum(1, 2)
 ```
 
 ## Enums
+```python
+# values in structs that do not have a type are states
+using DateTime
+
+struct Person:
+    Alive:
+        bool is_hungry
+    Dead:
+        DateTime death_date
+
+mark = Person.Alive(is_hungry: true)
 ```
-enum Person {
-    Alive {
-        bool hungry
-    }
-    Dead {
-        bool buried
-    }
-}
+## Error handling
+```python
+int or Error game(int value):
+    if value == 5:
+        return Error(msg: "Five is bad")
+    else:
+        return value
+
+three = game(3)?
+_error = game(5)?
+# Previous statement returns the Error
 ```
+## Traits
+
+
 
 ## Autofree
-```
-[num] numbers = [1, 2, 3]
+```python
+[int] numbers = [1, 2, 3]
 ```
 =>
 
-```
-[num] numbers = [1, 2, 3]
+```python
+[int] numbers = [1, 2, 3]
 free(numbers)
 ```
-## Macros
-Coming soon!
-
