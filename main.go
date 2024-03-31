@@ -22,7 +22,7 @@ type Token struct {
 }
 
 func tokenize(data string) []Token {
-	rune_data := []rune(data)
+	rune_data := []rune(data + "\n") 
 	var tokens []Token
 	var buffer string
 	var skip = -1
@@ -81,6 +81,20 @@ func tokenize(data string) []Token {
 			tokens = append(tokens, Token{"eol", "\\n"})
 		} else if char == ' ' {
 			continue
+		} else if char == '#' {
+			p := pos
+			for rune_data[p] != '\n' {
+				p++
+			}
+			skip = p
+		} else if char == '+' {
+			tokens = append(tokens, Token{"plus", "+"})
+		} else if char == '-' {
+			tokens = append(tokens, Token{"minus", "-"})
+		} else if char == '*' {
+			tokens = append(tokens, Token{"asterisk", "*"})
+		} else if char == '/' {
+			tokens = append(tokens, Token{"slash", "/"})
 		} else {
 			panic("Unexpected token: " + string(char))
 		}
