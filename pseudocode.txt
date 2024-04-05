@@ -1,6 +1,0 @@
-var program, tokens, skip = 0
-
-while skip >= len(tokens):
-	expr, skip = parse(tokens[skip:])
-	program.body.append(expr)
-

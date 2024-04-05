@@ -1,9 +1,14 @@
 package main
 
-import "unicode"
+import (
+	"fmt"
+	"strings"
+	"unicode"
+)
 
 func tokenize(data string) []Token {
-	rune_data := []rune(data + "\n") 
+	g := data + "\n"
+	rune_data := []rune(strings.Replace(g, "\r\n", "\n", -1))
 	var tokens []Token
 	var buffer string
 	var skip = -1
@@ -56,7 +61,7 @@ func tokenize(data string) []Token {
 			}
 			tokens = append(tokens, Token{"int", buffer})
 			buffer = ""
-			skip = p
+			skip = p - 1
 
 		} else if char == '\n' {
 			tokens = append(tokens, Token{"eol", "\\n"})
@@ -69,15 +74,19 @@ func tokenize(data string) []Token {
 			}
 			skip = p
 		} else if char == '+' {
-			tokens = append(tokens, Token{"plus", "+"})
+			tokens = append(tokens, Token{"binop", "+"})
 		} else if char == '-' {
-			tokens = append(tokens, Token{"minus", "-"})
+			tokens = append(tokens, Token{"binop", "-"})
 		} else if char == '*' {
-			tokens = append(tokens, Token{"asterisk", "*"})
+			tokens = append(tokens, Token{"binop", "*"})
 		} else if char == '/' {
-			tokens = append(tokens, Token{"slash", "/"})
+			tokens = append(tokens, Token{"binop", "/"})
+		} else if char == '(' {
+			tokens = append(tokens, Token{"open_paren", "("})
+		} else if char == ')' {
+			tokens = append(tokens, Token{"close_paren", ")"})
 		} else {
-			panic("Unexpected token: " + string(char))
+			panic(fmt.Sprintf("Unexpected token: %s", string(char)))
 		}
 
 	}
