@@ -11,6 +11,11 @@ type Program struct {
 	body []Expr
 }
 
+type BoolExpr struct {
+	expr_type string
+	value     bool
+}
+
 type IdentExpr struct {
 	expr_type string
 	value     string
@@ -55,6 +60,11 @@ type DivisionExpr struct {
 type Tokens struct {
 	curr   int
 	tokens []Token
+}
+
+type IfExpr struct {
+	expr_type string
+	true_expr Expr
 }
 
 type EmptyExpr struct{}
@@ -198,6 +208,18 @@ func expr(tokens []Token, skip int) (Expr, int) {
 		return EmptyExpr{}, skip + 1
 	} else if get(tokens, 0).token_type == "ident" {
 		return IdentExpr{"identifier", tokens[0].value}, 1
+	} else if get(tokens, 0).token_type == "keyword" && (get(tokens, 0).value == "true" || get(tokens, 0).value == "false") {
+		b := tokens[0].value
+		switch b {
+		case "true":
+			return BoolExpr{"bool", true}, 1
+		case "false":
+			return BoolExpr{"bool", false}, 1
+		}
+	} else if get(tokens, 0).token_type == "keyword" && get(tokens, 0).value == "if" {
+		// finish this pls
+		true_expr, s := expr(tokens[1:], skip)
+		return IfExpr{"if_expr", true_expr}, skip + s
 	}
 	panic(fmt.Sprintf("Cannot convert token %v\n", tokens[0]))
 }

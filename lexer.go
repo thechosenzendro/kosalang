@@ -12,11 +12,16 @@ func tokenize(data string) []Token {
 	var tokens []Token
 	var buffer string
 	var skip = -1
+	level := 0
+	levels := []int{0}
 	// Added whitespace after file content so that every token gets added to the tokens list
 	for pos := 0; pos < len(rune_data); pos++ {
 		char := rune_data[pos]
+		if char == 10 {
+			fmt.Println("HUHH")
+		}
 		if skip != -1 {
-			if skip >= len(data)-1 {
+			if skip >= len(rune_data) {
 				break
 			}
 			if pos < skip {
@@ -32,7 +37,11 @@ func tokenize(data string) []Token {
 				buffer += string(rune_data[p])
 				p++
 			}
-			tokens = append(tokens, Token{"ident", buffer})
+			if buffer == "if" || buffer == "true" || buffer == "false" {
+				tokens = append(tokens, Token{"keyword", buffer})
+			} else {
+				tokens = append(tokens, Token{"ident", buffer})
+			}
 			buffer = ""
 			skip = p
 		} else if char == '=' {
@@ -65,6 +74,42 @@ func tokenize(data string) []Token {
 
 		} else if char == '\n' {
 			tokens = append(tokens, Token{"eol", "\\n"})
+			n := 0
+			var p int
+			if pos+1 < len(rune_data) {
+				p = pos + 1
+				for true {
+					o := rune_data[p]
+					if o == ' ' {
+						n++
+						p++
+					} else {
+						break
+					}
+				}
+			} else {
+				p = pos
+			}
+			if n > level {
+				tokens = append(tokens, Token{"indent", ""})
+				levels = append(levels, n)
+				level = n
+				skip = p
+				continue
+			}
+			for n < level {
+				level = levels[len(levels)-1]
+				if len(levels) != 1 {
+					levels = levels[:len(levels)-1]
+				}
+				if level == 0 {
+					break
+				}
+				tokens = append(tokens, Token{"dedent", ""})
+				if level < n {
+					panic("Wut")
+				}
+			}
 		} else if char == ' ' {
 			continue
 		} else if char == '#' {
@@ -85,6 +130,8 @@ func tokenize(data string) []Token {
 			tokens = append(tokens, Token{"open_paren", "("})
 		} else if char == ')' {
 			tokens = append(tokens, Token{"close_paren", ")"})
+		} else if char == ':' {
+			tokens = append(tokens, Token{"colon", ":"})
 		} else {
 			panic(fmt.Sprintf("Unexpected token: %s", string(char)))
 		}

@@ -1,5 +1,6 @@
-favourite_number = 8*5*2+1/5
-hello = "world"
-well = 1 - 1
-well = 1 + 2
-degrees
+if true:
+    value = "l"
+    if false:
+        hello = "world"
+a = 2
+b = 0
