@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -91,7 +92,7 @@ func tokenize(data string) []Token {
 				p = pos
 			}
 			if n > level {
-				tokens = append(tokens, Token{"indent", ""})
+				tokens = append(tokens, Token{"indent", strconv.Itoa(n)})
 				levels = append(levels, n)
 				level = n
 				skip = p
@@ -105,7 +106,7 @@ func tokenize(data string) []Token {
 				if level == 0 {
 					break
 				}
-				tokens = append(tokens, Token{"dedent", ""})
+				tokens = append(tokens, Token{"dedent", strconv.Itoa(level)})
 				if level < n {
 					panic("Wut")
 				}

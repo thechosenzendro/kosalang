@@ -1,6 +1,8 @@
 if true:
     value = "l"
+    hello = 1
+    degrees
     if false:
-        hello = "world"
-a = 2
-b = 0
+        g = l
+        if hello_world:
+         gg = 6*(a + 1)
