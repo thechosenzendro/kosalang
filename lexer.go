@@ -38,7 +38,7 @@ func tokenize(data string) []Token {
 				buffer += string(rune_data[p])
 				p++
 			}
-			if buffer == "if" || buffer == "true" || buffer == "false" {
+			if buffer == "if" || buffer == "true" || buffer == "false" || buffer == "else" || buffer == "and" || buffer == "or" {
 				tokens = append(tokens, Token{"keyword", buffer})
 			} else {
 				tokens = append(tokens, Token{"ident", buffer})
@@ -54,7 +54,7 @@ func tokenize(data string) []Token {
 				buffer += string(rune_data[p])
 				p++
 			}
-			tokens = append(tokens, Token{"text", buffer})
+			tokens = append(tokens, Token{"string_lit", buffer})
 			buffer = ""
 			// skip + 1 so that it doesnt skip to the closing quote and create another text
 			skip = p + 1
@@ -69,7 +69,7 @@ func tokenize(data string) []Token {
 				buffer += string(rune_data[p])
 				p++
 			}
-			tokens = append(tokens, Token{"int", buffer})
+			tokens = append(tokens, Token{"int_lit", buffer})
 			buffer = ""
 			skip = p - 1
 
@@ -79,7 +79,7 @@ func tokenize(data string) []Token {
 			var p int
 			if pos+1 < len(rune_data) {
 				p = pos + 1
-				for true {
+				for {
 					o := rune_data[p]
 					if o == ' ' {
 						n++
@@ -99,7 +99,6 @@ func tokenize(data string) []Token {
 				continue
 			}
 			for n < level {
-				level = levels[len(levels)-1]
 				if len(levels) != 1 {
 					levels = levels[:len(levels)-1]
 				}
@@ -107,6 +106,7 @@ func tokenize(data string) []Token {
 					break
 				}
 				tokens = append(tokens, Token{"dedent", strconv.Itoa(level)})
+				level = levels[len(levels)-1]
 				if level < n {
 					panic("Wut")
 				}
@@ -133,6 +133,8 @@ func tokenize(data string) []Token {
 			tokens = append(tokens, Token{"close_paren", ")"})
 		} else if char == ':' {
 			tokens = append(tokens, Token{"colon", ":"})
+		} else if char == ',' {
+			tokens = append(tokens, Token{"comma", ","})
 		} else {
 			panic(fmt.Sprintf("Unexpected token: %s", string(char)))
 		}

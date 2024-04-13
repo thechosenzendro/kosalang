@@ -13,29 +13,24 @@ type Program struct {
 }
 
 type BoolExpr struct {
-	expr_type string
-	value     bool
+	value bool
 }
 
 type IdentExpr struct {
-	expr_type string
-	value     string
+	value string
 }
 
 type AssignmentExpr struct {
-	expr_type string
-	name      IdentExpr
-	value     Expr
+	name  IdentExpr
+	value Expr
 }
 
 type IntExpr struct {
-	expr_type string
-	value     int
+	value int
 }
 
 type StringExpr struct {
-	expr_type string
-	value     string
+	value string
 }
 
 type AdditionExpr struct {
@@ -58,68 +53,235 @@ type DivisionExpr struct {
 	rhs Expr
 }
 
+type Block struct {
+	body []Expr
+}
+
 type Tokens struct {
 	curr   int
 	tokens []Token
 }
 
 type IfExpr struct {
-	expr_type  string
 	true_expr  Expr
-	true_block []Expr
+	true_block Block
+	else_block Block
+}
+
+type FunctionDeclExpr struct {
+	return_type Expr
+	arguments   []ArgumentExpr
+	body        Block
+}
+
+type ArgumentExpr struct {
+	arg_type Expr
+	name     IdentExpr
 }
 
 type EmptyExpr struct{}
 
-func (tks Tokens) curr_tok() *Token {
-	if tks.curr < len(tks.tokens) {
-		return &tks.tokens[tks.curr]
+func (tks Tokens) peek(offset int) (token *Token) {
+	if tks.curr+offset < len(tks.tokens) {
+		return &tks.tokens[tks.curr+offset]
 	} else {
 		return nil
 	}
 }
-func (tks *Tokens) advance() {
-	tks.curr++
+func (tks *Tokens) consume(amount int) {
+	tks.curr += amount
 }
-func parse_atom(tokens *Tokens) (expr Expr, err error) {
-	tok := tokens.curr_tok()
-	if tok == (*Token)(nil) {
-		return nil, errors.New("Unexpected EOF")
-	}
 
-	if tok.token_type == "open_paren" {
-		tokens.advance()
-		val, _, err := parse_expr(tokens, 1)
-		if err != nil {
-			return nil, errors.New("HelloWorld")
-		}
-
-		tok = tokens.curr_tok()
-		if tok == (*Token)(nil) {
-			return nil, errors.New("Unexpected EOF")
-		}
-		if tok.token_type != "close_paren" {
-			return nil, errors.New("Unmatched '('")
-		}
-		tokens.advance()
-		return val, nil
-
-	} else if tok.token_type == "binop" {
-		return nil, errors.New(fmt.Sprintf("Expected an atom, not %v\n", tok))
-	} else if tok.token_type == "int" {
-		tokens.advance()
-		return tok.value, nil
-	} else if tok.token_type == "ident" {
-		tokens.advance()
-		return IdentExpr{"identifier", tok.value}, nil
-	}
-
-	return nil, errors.New("uhoh")
+func keyword(token *Token) bool {
+	return token.token_type == "keyword"
 }
-func parse_expr(tokens *Tokens, min_prec int) (expr Expr, skip int, err error) {
-	atom_lhs, err := parse_atom(tokens)
+
+func parse(tks []Token) Program {
+	program := Program{}
+	tokens := Tokens{0, tks}
+	for tokens.peek(0) != nil {
+		expr := parse_expr(&tokens)
+		program.body = append(program.body, expr)
+	}
+	return program
+}
+
+func parse_argument(tokens *Tokens) ArgumentExpr {
+	if tokens.peek(0).token_type == "ident" && tokens.peek(1).token_type == "ident" {
+		arg_type := tokens.peek(0)
+		name := IdentExpr{tokens.peek(1).value}
+		tokens.consume(2)
+		return ArgumentExpr{arg_type, name}
+	}
+	panic("Current token isnt an argument")
+}
+
+func parse_expr(tokens *Tokens) Expr {
+	if tokens.peek(0).token_type == "ident" && tokens.peek(1).token_type == "equals" {
+		name := tokens.peek(0).value
+		tokens.consume(2)
+		expr := parse_expr(tokens)
+		return AssignmentExpr{IdentExpr{name}, expr}
+
+	} else if tokens.peek(0).token_type == "ident" && ((tokens.peek(1).token_type == "ident" && tokens.peek(2).token_type == "open_paren") || tokens.peek(1).token_type == "open_paren") {
+		return_type := tokens.peek(0)
+		func_decl := FunctionDeclExpr{return_type, []ArgumentExpr{}, Block{}}
+		var func_name string
+		tokens.consume(1)
+
+		if tokens.peek(0).token_type == "ident" {
+			func_name = tokens.peek(0).value
+			tokens.consume(1)
+		}
+		if tokens.peek(0).token_type == "open_paren" {
+
+			tokens.consume(1)
+		}
+		for {
+			for tokens.peek(0).token_type == "eol" {
+				tokens.consume(1)
+			}
+			if tokens.peek(0).token_type == "comma" {
+				tokens.consume(1)
+			}
+			if tokens.peek(0).token_type == "close_paren" {
+				tokens.consume(1)
+				break
+			}
+			func_decl.arguments = append(func_decl.arguments, parse_argument(tokens))
+		}
+		func_decl.body = parse_block(tokens)
+		if func_name != "" {
+			return AssignmentExpr{IdentExpr{func_name}, func_decl}
+
+		} else {
+			return func_decl
+		}
+	}
+	p := tokens.curr
+	expr, err := parse_math_expr(tokens, 1)
+	if err == nil {
+		return expr
+	} else {
+		tokens.curr = p
+	}
+	if tokens.peek(0).token_type == "int_lit" {
+		return parse_int_lit(tokens)
+	} else if tokens.peek(0).token_type == "string_lit" {
+		text := StringExpr{tokens.peek(0).value}
+		tokens.consume(1)
+		return text
+
+	} else if tokens.peek(0).token_type == "eol" {
+		expr := EmptyExpr{}
+		tokens.consume(1)
+		return expr
+
+	} else if tokens.peek(0).token_type == "ident" {
+		return parse_ident(tokens)
+	} else if keyword(tokens.peek(0)) {
+		switch tokens.peek(0).value {
+		case "true":
+			expr := BoolExpr{true}
+			tokens.consume(1)
+			return expr
+
+		case "false":
+			expr := BoolExpr{false}
+			tokens.consume(1)
+			return expr
+
+		case "if":
+			tokens.consume(1)
+			true_expr := parse_expr(tokens)
+			true_block := parse_block(tokens)
+			var else_block Block
+			if keyword(tokens.peek(0)) && tokens.peek(0).value == "else" {
+				tokens.consume(1)
+				else_block = parse_block(tokens)
+			}
+			return IfExpr{true_expr, true_block, else_block}
+		}
+	}
+	panic(fmt.Sprintln("Cannot convert token", tokens.peek(0)))
+}
+
+func parse_block(tokens *Tokens) Block {
+	if tokens.peek(0).token_type == "colon" {
+		if tokens.peek(1).token_type == "eol" {
+			if tokens.peek(2).token_type == "indent" {
+				indent_level := tokens.peek(2).value
+				tokens.consume(3)
+
+				var block Block
+				for {
+					for tokens.peek(0).token_type == "eol" {
+						tokens.consume(1)
+					}
+					if tokens.peek(0).token_type == "dedent" && tokens.peek(0).value == indent_level {
+						tokens.consume(1)
+						break
+					}
+					expr := parse_expr(tokens)
+					block.body = append(block.body, expr)
+				}
+				return block
+			}
+		}
+	}
+	panic("Block not found")
+}
+
+func parse_int_lit(tokens *Tokens) IntExpr {
+	num, err := strconv.Atoi(tokens.peek(0).value)
 	if err != nil {
-		return nil, -1, err
+		panic("Cannot convert int literal to int")
+	}
+	expr := IntExpr{num}
+	tokens.consume(1)
+	return expr
+
+}
+
+func parse_ident(tokens *Tokens) IdentExpr {
+	expr := IdentExpr{tokens.peek(0).value}
+	tokens.consume(1)
+	return expr
+
+}
+
+func parse_math_atom(tokens *Tokens) (expr Expr, err error) {
+	if tokens.peek(0) == nil {
+		return nil, errors.New("unexpected EOF")
+	}
+	if tokens.peek(0).token_type == "open_paren" {
+		tokens.consume(1)
+		val, err := parse_math_expr(tokens, 0)
+		if err != nil {
+			return nil, err
+		}
+		if tokens.peek(0) == nil {
+			return nil, errors.New("unexpected EOF")
+		}
+		if tokens.peek(0).token_type != "close_paren" {
+			return nil, errors.New("unmatched '('")
+		}
+		tokens.consume(1)
+		return val, nil
+	} else if tokens.peek(0).token_type == "binop" {
+		return nil, fmt.Errorf("expected an atom, not %v", tokens.peek(0))
+	} else if tokens.peek(0).token_type == "int_lit" {
+		return parse_int_lit(tokens), nil
+	} else if tokens.peek(0).token_type == "ident" {
+		return parse_ident(tokens), nil
+	}
+	return nil, errors.New("not a known token")
+}
+
+func parse_math_expr(tokens *Tokens, min_prec int) (expr Expr, err error) {
+	atom_lhs, err := parse_math_atom(tokens)
+	if err != nil {
+		return nil, err
 	}
 	precedences := map[string]int{
 		"+": 1,
@@ -127,137 +289,32 @@ func parse_expr(tokens *Tokens, min_prec int) (expr Expr, skip int, err error) {
 		"*": 2,
 		"/": 2,
 	}
-	for true {
-		cur := tokens.curr_tok()
-
-		if cur == (*Token)(nil) || cur.token_type != "binop" || precedences[cur.value] < min_prec {
+	for {
+		curr := tokens.peek(0)
+		if curr == nil || curr.token_type != "binop" || precedences[curr.value] < min_prec {
 			break
 		}
-		if cur.token_type != "binop" {
-			return nil, -1, errors.New("Current token isnt a binop")
+		if curr.token_type != "binop" {
+			return nil, errors.New("current token isnt a binop")
 		}
-		op := cur.value
-		prec := precedences[cur.value]
-		next_min_prec := prec + 1
-		tokens.advance()
-		atom_rhs, _, err := parse_expr(tokens, next_min_prec)
+		op := curr.value
+		precedence := precedences[curr.value]
+		next_min_precedence := precedence + 1
+		tokens.consume(1)
+		atom_rhs, err := parse_math_expr(tokens, next_min_precedence)
 		if err != nil {
-			return nil, -1, err
+			return nil, err
 		}
 		switch op {
 		case "+":
 			atom_lhs = AdditionExpr{atom_lhs, atom_rhs}
-
 		case "-":
 			atom_lhs = SubtractionExpr{atom_lhs, atom_rhs}
-
 		case "*":
 			atom_lhs = MultiplicationExpr{atom_lhs, atom_rhs}
-
 		case "/":
 			atom_lhs = DivisionExpr{atom_lhs, atom_rhs}
-		default:
-			return nil, -1, errors.New("No known binop")
 		}
 	}
-	return atom_lhs, tokens.curr, nil
-}
-
-func parse(tokens []Token) Program {
-	program := Program{}
-	skip := 0
-
-	for skip < len(tokens) {
-		x := tokens[skip:]
-		node, s := expr(x, skip)
-		if s > skip {
-			skip = s
-		} else {
-			skip = skip + s
-		}
-		program.body = append(program.body, node)
-	}
-
-	return program
-}
-
-func get(tokens []Token, i int) Token {
-	if i < len(tokens) {
-		return tokens[i]
-	} else {
-		return Token{"", ""}
-	}
-}
-
-func expr(tokens []Token, skip int) (Expr, int) {
-	if get(tokens, 0).token_type == "ident" && get(tokens, 1).token_type == "equals" {
-		node, s := expr(tokens[2:], skip)
-		return AssignmentExpr{"assignment", IdentExpr{"identifier", tokens[0].value}, node}, 3 + s + skip
-
-	}
-
-	p := 0
-	//TODO: it creates a problem
-	for true {
-		if p < len(tokens) && tokens[p].token_type != "eol" {
-			p++
-		} else {
-			break
-		}
-
-	}
-	t := tokens[:p]
-	tks := Tokens{0, t}
-	e, skip, err := parse_expr(&tks, 1)
-	if err == nil {
-		return e, skip
-	} else if get(tokens, 0).token_type == "int" {
-		num, err := strconv.Atoi(tokens[0].value)
-		if err != nil {
-			panic("Cannot convert int to int")
-		}
-		return IntExpr{"number", num}, 1
-
-	} else if get(tokens, 0).token_type == "text" {
-		return StringExpr{"string", tokens[0].value}, 1
-	} else if get(tokens, 0).token_type == "eol" {
-		return EmptyExpr{}, skip + 1
-	} else if get(tokens, 0).token_type == "ident" {
-		return IdentExpr{"identifier", tokens[0].value}, 1
-	} else if get(tokens, 0).token_type == "keyword" && (get(tokens, 0).value == "true" || get(tokens, 0).value == "false") {
-		b := tokens[0].value
-		switch b {
-		case "true":
-			return BoolExpr{"bool", true}, 1
-		case "false":
-			return BoolExpr{"bool", false}, 1
-		}
-	} else if get(tokens, 0).token_type == "keyword" && get(tokens, 0).value == "if" {
-		p := 1
-		for tokens[p].token_type != "colon" {
-			p++
-		}
-		l := tokens[1:p]
-		fmt.Println(l)
-		true_expr, s := expr(l, skip)
-		s = s + 3
-		var true_block []Expr
-		if tokens[s].token_type == "indent" {
-			n := tokens[s].value
-			p = s + 1
-			for true {
-				if tokens[p].token_type == "dedent" && tokens[p].value == n {
-					break
-				}
-				p++
-			}
-			fmt.Println(tokens[p])
-			block_tokens := tokens[s+1 : p]
-			true_block = parse(block_tokens).body
-		} else {
-			panic("No block found")
-		}
-		return IfExpr{"if_expr", true_expr, true_block}, skip + s + p + 2
-	}
-	panic(fmt.Sprintf("Cannot convert token %v\n", tokens[0]))
+	return atom_lhs, nil
 }
