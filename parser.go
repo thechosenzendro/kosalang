@@ -227,6 +227,10 @@ func parse_block(tokens *Tokens) Block {
 				}
 				return block
 			}
+		} else {
+			tokens.consume(1)
+			expr := parse_expr(tokens)
+			return Block{[]Expr{expr}}
 		}
 	}
 	panic("Block not found")
