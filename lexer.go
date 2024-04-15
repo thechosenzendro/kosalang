@@ -15,6 +15,8 @@ func tokenize(data string) []Token {
 	var skip = -1
 	level := 0
 	levels := []int{0}
+
+	paren_levels := 0
 	// Added whitespace after file content so that every token gets added to the tokens list
 	for pos := 0; pos < len(rune_data); pos++ {
 		char := rune_data[pos]
@@ -128,9 +130,11 @@ func tokenize(data string) []Token {
 		} else if char == '/' {
 			tokens = append(tokens, Token{"binop", "/"})
 		} else if char == '(' {
-			tokens = append(tokens, Token{"open_paren", "("})
+			paren_levels++
+			tokens = append(tokens, Token{"open_paren", strconv.Itoa(paren_levels)})
 		} else if char == ')' {
-			tokens = append(tokens, Token{"close_paren", ")"})
+			tokens = append(tokens, Token{"close_paren", strconv.Itoa(paren_levels)})
+			paren_levels--
 		} else if char == ':' {
 			tokens = append(tokens, Token{"colon", ":"})
 		} else if char == ',' {

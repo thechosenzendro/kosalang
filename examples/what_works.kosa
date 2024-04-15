@@ -27,4 +27,7 @@ int add(int a, int b):
     hello = World
     a + b
 
-concat = string(string a, string b): a + b
+add(1,2)
+
+concat = string (string a, string b): a + b
+hello = (sum(1,2)*(1+1))

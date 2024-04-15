@@ -70,13 +70,18 @@ type IfExpr struct {
 
 type FunctionDeclExpr struct {
 	return_type Expr
-	arguments   []ArgumentExpr
+	arguments   []ArgumentDeclExpr
 	body        Block
 }
 
-type ArgumentExpr struct {
+type ArgumentDeclExpr struct {
 	arg_type Expr
 	name     IdentExpr
+}
+
+type FuncCallExpr struct {
+	name      IdentExpr
+	arguments []Expr
 }
 
 type EmptyExpr struct{}
@@ -106,12 +111,12 @@ func parse(tks []Token) Program {
 	return program
 }
 
-func parse_argument(tokens *Tokens) ArgumentExpr {
+func parse_argument_decl(tokens *Tokens) ArgumentDeclExpr {
 	if tokens.peek(0).token_type == "ident" && tokens.peek(1).token_type == "ident" {
 		arg_type := tokens.peek(0)
 		name := IdentExpr{tokens.peek(1).value}
 		tokens.consume(2)
-		return ArgumentExpr{arg_type, name}
+		return ArgumentDeclExpr{arg_type, name}
 	}
 	panic("Current token isnt an argument")
 }
@@ -124,38 +129,34 @@ func parse_expr(tokens *Tokens) Expr {
 		return AssignmentExpr{IdentExpr{name}, expr}
 
 	} else if tokens.peek(0).token_type == "ident" && ((tokens.peek(1).token_type == "ident" && tokens.peek(2).token_type == "open_paren") || tokens.peek(1).token_type == "open_paren") {
-		return_type := tokens.peek(0)
-		func_decl := FunctionDeclExpr{return_type, []ArgumentExpr{}, Block{}}
-		var func_name string
-		tokens.consume(1)
-
-		if tokens.peek(0).token_type == "ident" {
-			func_name = tokens.peek(0).value
-			tokens.consume(1)
-		}
-		if tokens.peek(0).token_type == "open_paren" {
-
-			tokens.consume(1)
+		var token_skip int
+		var is_anon bool
+		var paren_level string
+		if tokens.peek(1).token_type == "ident" {
+			token_skip = 2
+			is_anon = false
+			paren_level = tokens.peek(2).value
+		} else if tokens.peek(1).token_type == "open_paren" {
+			token_skip = 1
+			is_anon = true
+			paren_level = tokens.peek(1).value
 		}
 		for {
-			for tokens.peek(0).token_type == "eol" {
-				tokens.consume(1)
-			}
-			if tokens.peek(0).token_type == "comma" {
-				tokens.consume(1)
-			}
-			if tokens.peek(0).token_type == "close_paren" {
-				tokens.consume(1)
+			if tokens.peek(token_skip).token_type == "close_paren" && tokens.peek(token_skip).value == paren_level {
+				token_skip++
 				break
 			}
-			func_decl.arguments = append(func_decl.arguments, parse_argument(tokens))
+			token_skip++
 		}
-		func_decl.body = parse_block(tokens)
-		if func_name != "" {
-			return AssignmentExpr{IdentExpr{func_name}, func_decl}
+		if tokens.peek(token_skip).token_type == "colon" {
+			if is_anon {
+				return AssignmentExpr{IdentExpr{tokens.peek(1).value}, parse_function_decl(tokens)}
+			} else {
+				return parse_function_decl(tokens)
+			}
 
 		} else {
-			return func_decl
+			return parse_function_call(tokens)
 		}
 	}
 	p := tokens.curr
@@ -254,6 +255,56 @@ func parse_ident(tokens *Tokens) IdentExpr {
 
 }
 
+func parse_function_decl(tokens *Tokens) FunctionDeclExpr {
+	return_type := tokens.peek(0)
+	func_decl := FunctionDeclExpr{return_type, []ArgumentDeclExpr{}, Block{}}
+	tokens.consume(1)
+
+	if tokens.peek(0).token_type == "ident" {
+		tokens.consume(1)
+	}
+	if tokens.peek(0).token_type == "open_paren" {
+		tokens.consume(1)
+	} else {
+		panic("uhoh")
+	}
+	for {
+		for tokens.peek(0).token_type == "eol" {
+			tokens.consume(1)
+		}
+		if tokens.peek(0).token_type == "comma" {
+			tokens.consume(1)
+		}
+		if tokens.peek(0).token_type == "close_paren" {
+			tokens.consume(1)
+			break
+		}
+		func_decl.arguments = append(func_decl.arguments, parse_argument_decl(tokens))
+	}
+	func_decl.body = parse_block(tokens)
+	return func_decl
+}
+
+func parse_function_call(tokens *Tokens) FuncCallExpr {
+	func_call := FuncCallExpr{IdentExpr{tokens.peek(0).value}, []Expr{}}
+	paren_level := tokens.peek(1).value
+	tokens.consume(2)
+	for {
+		for tokens.peek(0).token_type == "eol" {
+			tokens.consume(1)
+		}
+		if tokens.peek(0).token_type == "comma" {
+			tokens.consume(1)
+		}
+		if tokens.peek(0).token_type == "close_paren" && tokens.peek(0).value == paren_level {
+			tokens.consume(1)
+			break
+		}
+		func_call.arguments = append(func_call.arguments, parse_expr(tokens))
+	}
+	return func_call
+}
+
 func parse_math_atom(tokens *Tokens) (expr Expr, err error) {
 	if tokens.peek(0) == nil {
 		return nil, errors.New("unexpected EOF")
@@ -276,6 +327,8 @@ func parse_math_atom(tokens *Tokens) (expr Expr, err error) {
 		return nil, fmt.Errorf("expected an atom, not %v", tokens.peek(0))
 	} else if tokens.peek(0).token_type == "int_lit" {
 		return parse_int_lit(tokens), nil
+	} else if tokens.peek(0).token_type == "ident" && tokens.peek(1).token_type == "open_paren" {
+		return parse_function_call(tokens), nil
 	} else if tokens.peek(0).token_type == "ident" {
 		return parse_ident(tokens), nil
 	}

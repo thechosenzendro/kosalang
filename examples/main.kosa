@@ -1,1 +1,33 @@
-concat = string(string a, string b): a + b
+# Hello World!
+favourite_number = 8*5*2+1/5
+hello = "world" # This works too!
+well = 1 - 1
+well = 1 + 2
+degrees
+
+if true:
+    value = "l"
+    hello = 1
+    degrees
+    if false:
+        g = l
+        if hello_world:
+         gg = 6*(a + 1)
+        else:
+         if hi:
+          true
+         else:
+          false
+    else:
+     HELLOWORLD
+else:
+    bruh
+
+int add(int a, int b):
+    hello = World
+    a + b
+
+add(1,2)
+
+concat = string (string a, string b): a + b
+hello = (sum(1,2)*(1+1))
