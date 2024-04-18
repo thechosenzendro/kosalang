@@ -84,6 +84,15 @@ type FuncCallExpr struct {
 	arguments []Expr
 }
 
+type StructExpr struct {
+	fields Block
+}
+
+type UsingExpr struct {
+	path    []IdentExpr
+	imports []IdentExpr
+}
+
 type EmptyExpr struct{}
 
 func (tks Tokens) peek(offset int) (token *Token) {
@@ -202,6 +211,42 @@ func parse_expr(tokens *Tokens) Expr {
 				else_block = parse_block(tokens)
 			}
 			return IfExpr{true_expr, true_block, else_block}
+		case "struct":
+			// this doesnt handle the cases where the struct is anon
+			tokens.consume(1)
+			var struct_name string
+			if tokens.peek(0).token_type == "ident" {
+				struct_name = tokens.peek(0).value
+				tokens.consume(1)
+			}
+			struct_block := parse_struct_block(tokens)
+			if struct_name == "" {
+				return StructExpr{struct_block}
+			} else {
+				return AssignmentExpr{IdentExpr{struct_name}, StructExpr{struct_block}}
+			}
+		case "using":
+			tokens.consume(1)
+			path := tokens.peek(0).value
+			tokens.consume(1)
+			if path[len(path)-1] == '.' {
+				//consume the left curly bracket
+				curly_bracket_level := tokens.peek(0).value
+				tokens.consume(1)
+				for {
+					if tokens.peek(0).token_type == "comma" {
+						tokens.consume(1)
+					}
+					if tokens.peek(0).token_type == "close_curly_bracket" && tokens.peek(0).value == curly_bracket_level {
+						tokens.consume(1)
+						break
+					}
+					ident := parse_ident(tokens)
+					// finish this!!!
+					fmt.Println(ident)
+				}
+			}
+			return nil
 		}
 	}
 	panic(fmt.Sprintln("Cannot convert token", tokens.peek(0)))
@@ -224,6 +269,36 @@ func parse_block(tokens *Tokens) Block {
 						break
 					}
 					expr := parse_expr(tokens)
+					block.body = append(block.body, expr)
+				}
+				return block
+			}
+		} else {
+			tokens.consume(1)
+			expr := parse_expr(tokens)
+			return Block{[]Expr{expr}}
+		}
+	}
+	panic("Block not found")
+}
+
+func parse_struct_block(tokens *Tokens) Block {
+	if tokens.peek(0).token_type == "colon" {
+		if tokens.peek(1).token_type == "eol" {
+			if tokens.peek(2).token_type == "indent" {
+				indent_level := tokens.peek(2).value
+				tokens.consume(3)
+
+				var block Block
+				for {
+					for tokens.peek(0).token_type == "eol" {
+						tokens.consume(1)
+					}
+					if tokens.peek(0).token_type == "dedent" && tokens.peek(0).value == indent_level {
+						tokens.consume(1)
+						break
+					}
+					expr := parse_argument_decl(tokens)
 					block.body = append(block.body, expr)
 				}
 				return block

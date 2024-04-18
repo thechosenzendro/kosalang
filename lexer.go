@@ -17,6 +17,7 @@ func tokenize(data string) []Token {
 	levels := []int{0}
 
 	paren_levels := 0
+	curly_bracket_levels := 0
 	// Added whitespace after file content so that every token gets added to the tokens list
 	for pos := 0; pos < len(rune_data); pos++ {
 		char := rune_data[pos]
@@ -36,11 +37,19 @@ func tokenize(data string) []Token {
 
 		if unicode.IsLetter(char) || char == '_' {
 			p := pos
-			for unicode.IsLetter(rune_data[p]) || rune_data[p] == '_' {
+			for unicode.IsLetter(rune_data[p]) || rune_data[p] == '_' || rune_data[p] == '.' {
 				buffer += string(rune_data[p])
 				p++
 			}
-			if buffer == "if" || buffer == "true" || buffer == "false" || buffer == "else" || buffer == "and" || buffer == "or" {
+			if buffer == "if" ||
+				buffer == "true" ||
+				buffer == "false" ||
+				buffer == "else" ||
+				buffer == "and" ||
+				buffer == "or" ||
+				buffer == "struct" ||
+				buffer == "pub" ||
+				buffer == "using" {
 				tokens = append(tokens, Token{"keyword", buffer})
 			} else {
 				tokens = append(tokens, Token{"ident", buffer})
@@ -73,7 +82,7 @@ func tokenize(data string) []Token {
 			}
 			tokens = append(tokens, Token{"int_lit", buffer})
 			buffer = ""
-			skip = p - 1
+			skip = p
 
 		} else if char == '\n' {
 			tokens = append(tokens, Token{"eol", "\\n"})
@@ -139,6 +148,12 @@ func tokenize(data string) []Token {
 			tokens = append(tokens, Token{"colon", ":"})
 		} else if char == ',' {
 			tokens = append(tokens, Token{"comma", ","})
+		} else if char == '{' {
+			curly_bracket_levels++
+			tokens = append(tokens, Token{"open_curly_bracket", strconv.Itoa(paren_levels)})
+		} else if char == '}' {
+			tokens = append(tokens, Token{"close_curly_bracket", strconv.Itoa(paren_levels)})
+			curly_bracket_levels--
 		} else {
 			panic(fmt.Sprintf("Unexpected token: %s", string(char)))
 		}
