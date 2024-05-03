@@ -1,3 +1,8 @@
+using jellyserve
+using jellyserve.response
+using jellyserve, random
+using jellyserve.(listen, Connection)
+
 # Hello World!
 favourite_number = 8*5*2+1/5
 hello = "world" # This works too!
@@ -40,3 +45,23 @@ Hello = struct:
     string name
 
 person = Person("Marek Pokorný", 15)
+
+# Extension function
+
+bool Article.is_recent(Article a):
+    true
+
+# Tabs are just four spaces
+string greeting():
+    "Hello!"
+
+# Named arguments
+p = Person(name: "Adam", age: 15, gg)
+
+# Default arguments
+bool is_active(bool status = false):
+    status
+
+match name:
+    "Adam": "Mada"
+    _: panic("Not a known name")

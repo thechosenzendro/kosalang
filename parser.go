@@ -3,7 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
+	"strings"
 )
 
 type Expr interface{}
@@ -75,8 +77,9 @@ type FunctionDeclExpr struct {
 }
 
 type ArgumentDeclExpr struct {
-	arg_type Expr
-	name     IdentExpr
+	arg_type     Expr
+	name         IdentExpr
+	default_expr *Expr
 }
 
 type FuncCallExpr struct {
@@ -88,9 +91,17 @@ type StructExpr struct {
 	fields Block
 }
 
-type UsingExpr struct {
+type Import struct {
 	path    []IdentExpr
 	imports []IdentExpr
+}
+
+type UsingExpr struct {
+	imports []Import
+}
+
+type PubExpr struct {
+	expr Expr
 }
 
 type EmptyExpr struct{}
@@ -125,7 +136,14 @@ func parse_argument_decl(tokens *Tokens) ArgumentDeclExpr {
 		arg_type := tokens.peek(0)
 		name := IdentExpr{tokens.peek(1).value}
 		tokens.consume(2)
-		return ArgumentDeclExpr{arg_type, name}
+		if tokens.peek(0).token_type == "equals" {
+			tokens.consume(1)
+			expr := parse_expr(tokens)
+			return ArgumentDeclExpr{arg_type, name, &expr}
+
+		} else {
+			return ArgumentDeclExpr{arg_type, name, nil}
+		}
 	}
 	panic("Current token isnt an argument")
 }
@@ -158,7 +176,7 @@ func parse_expr(tokens *Tokens) Expr {
 			token_skip++
 		}
 		if tokens.peek(token_skip).token_type == "colon" {
-			if is_anon {
+			if !is_anon {
 				return AssignmentExpr{IdentExpr{tokens.peek(1).value}, parse_function_decl(tokens)}
 			} else {
 				return parse_function_decl(tokens)
@@ -227,31 +245,128 @@ func parse_expr(tokens *Tokens) Expr {
 			}
 		case "using":
 			tokens.consume(1)
-			path := tokens.peek(0).value
-			tokens.consume(1)
-			if path[len(path)-1] == '.' {
-				//consume the left curly bracket
-				curly_bracket_level := tokens.peek(0).value
-				tokens.consume(1)
-				for {
-					if tokens.peek(0).token_type == "comma" {
-						tokens.consume(1)
+			using_expr := UsingExpr{}
+			for {
+				if tokens.peek(0).token_type == "ident" {
+					path := tokens.peek(0).value
+					tokens.consume(1)
+
+					path_list := strings.Split(path, ".")
+					fmt.Println(path_list)
+
+					var ident_path []IdentExpr
+					for _, path_segment := range path_list {
+						if path_segment != "" {
+							ident_path = append(ident_path, IdentExpr{path_segment})
+						}
 					}
-					if tokens.peek(0).token_type == "close_curly_bracket" && tokens.peek(0).value == curly_bracket_level {
+					var imports []IdentExpr
+					if path_list[len(path_list)-1] == "" {
+						if tokens.peek(0).token_type != "open_paren" {
+							panic("uhoh")
+						}
 						tokens.consume(1)
-						break
+						for {
+							if tokens.peek(0).token_type == "ident" {
+								imports = append(imports, IdentExpr{tokens.peek(0).value})
+								tokens.consume(1)
+							}
+							if tokens.peek(0).token_type == "comma" {
+								tokens.consume(1)
+							}
+							if tokens.peek(0).token_type == "close_paren" {
+								tokens.consume(1)
+								break
+							}
+						}
+					} else {
+						imports = []IdentExpr{{"*"}}
 					}
-					ident := parse_ident(tokens)
-					// finish this!!!
-					fmt.Println(ident)
+					using_expr.imports = append(using_expr.imports, Import{ident_path, imports})
+				}
+				if tokens.peek(0).token_type == "comma" {
+					tokens.consume(1)
+				}
+				if tokens.peek(0).token_type == "eol" {
+					tokens.consume(1)
+					break
 				}
 			}
-			return nil
+
+			print_struct(using_expr)
+			return using_expr
+		case "pub":
+			tokens.consume(1)
+			return PubExpr{parse_expr(tokens)}
+		case "match":
+			tokens.consume(1)
+			matchee := parse_ident(tokens)
+			matchers := parse_match_block(tokens)
+			var _default Block
+			for i, matcher := range matchers {
+				if reflect.TypeOf(matcher.matcher) == reflect.TypeOf(IdentExpr{}) {
+					value := matcher.matcher.(IdentExpr).value
+					if value == "_" {
+						_default = matcher.block
+						matchers = append(matchers[:i], matchers[i+1:]...)
+						break
+					}
+				}
+			}
+			return MatchExpr{matchee, matchers, &_default}
 		}
 	}
 	panic(fmt.Sprintln("Cannot convert token", tokens.peek(0)))
 }
 
+type MatchExpr struct {
+	matchee       IdentExpr
+	matchers      []Matcher
+	default_match *Block
+}
+
+type Matcher struct {
+	matcher Expr
+	block   Block
+}
+
+func parse_match_block(tokens *Tokens) []Matcher {
+	if tokens.peek(0).token_type == "colon" {
+		if tokens.peek(1).token_type == "eol" {
+			if tokens.peek(2).token_type == "indent" {
+				indent_level := tokens.peek(2).value
+				tokens.consume(3)
+
+				var matchers []Matcher
+				for {
+					for tokens.peek(0).token_type == "eol" {
+						tokens.consume(1)
+					}
+					if tokens.peek(0).token_type == "dedent" && tokens.peek(0).value == indent_level {
+						tokens.consume(1)
+						break
+					}
+					var matcher Matcher
+					matcher.matcher = parse_expr(tokens)
+					matcher.block = parse_block(tokens)
+					matchers = append(matchers, matcher)
+				}
+				return matchers
+			}
+		} else {
+			tokens.consume(1)
+			var matcher Matcher
+			matcher.matcher = parse_ident(tokens)
+			matcher.block = parse_block(tokens)
+			return []Matcher{matcher}
+		}
+	}
+	panic("Block not found")
+}
+
+func print_struct(s any) {
+	fmt.Printf("%#v\n", s)
+}
 func parse_block(tokens *Tokens) Block {
 	if tokens.peek(0).token_type == "colon" {
 		if tokens.peek(1).token_type == "eol" {
@@ -331,7 +446,7 @@ func parse_ident(tokens *Tokens) IdentExpr {
 }
 
 func parse_function_decl(tokens *Tokens) FunctionDeclExpr {
-	return_type := tokens.peek(0)
+	return_type := tokens.peek(0).value
 	func_decl := FunctionDeclExpr{return_type, []ArgumentDeclExpr{}, Block{}}
 	tokens.consume(1)
 
@@ -360,6 +475,21 @@ func parse_function_decl(tokens *Tokens) FunctionDeclExpr {
 	return func_decl
 }
 
+type FuncCallArgumentExpr struct {
+	name *string
+	expr Expr
+}
+
+func parse_function_call_argument(tokens *Tokens) FuncCallArgumentExpr {
+	if tokens.peek(0).token_type == "ident" && tokens.peek(1).token_type == "colon" {
+		arg_name := tokens.peek(0).value
+		tokens.consume(2)
+		return FuncCallArgumentExpr{&arg_name, parse_expr(tokens)}
+	} else {
+		return FuncCallArgumentExpr{nil, parse_expr(tokens)}
+	}
+}
+
 func parse_function_call(tokens *Tokens) FuncCallExpr {
 	func_call := FuncCallExpr{IdentExpr{tokens.peek(0).value}, []Expr{}}
 	paren_level := tokens.peek(1).value
@@ -375,7 +505,7 @@ func parse_function_call(tokens *Tokens) FuncCallExpr {
 			tokens.consume(1)
 			break
 		}
-		func_call.arguments = append(func_call.arguments, parse_expr(tokens))
+		func_call.arguments = append(func_call.arguments, parse_function_call_argument(tokens))
 	}
 	return func_call
 }

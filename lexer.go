@@ -9,7 +9,7 @@ import (
 
 func tokenize(data string) []Token {
 	g := data + "\n"
-	rune_data := []rune(strings.Replace(g, "\r\n", "\n", -1))
+	rune_data := []rune(strings.Replace(strings.Replace(g, "\r\n", "\n", -1), "\t", "    ", -1))
 	var tokens []Token
 	var buffer string
 	var skip = -1
@@ -49,8 +49,21 @@ func tokenize(data string) []Token {
 				buffer == "or" ||
 				buffer == "struct" ||
 				buffer == "pub" ||
-				buffer == "using" {
+				buffer == "using" ||
+				buffer == "match" {
 				tokens = append(tokens, Token{"keyword", buffer})
+			} else if buffer == "f" && rune_data[pos+1] == '"' {
+				p := pos + 1
+				for pos < len(data)-1 && rune_data[p] != '"' {
+
+					buffer += string(rune_data[p])
+					p++
+				}
+				tokens = append(tokens, Token{"string_lit", buffer})
+				buffer = ""
+				// skip + 1 so that it doesnt skip to the closing quote and create another text
+				skip = p + 1
+				continue
 			} else {
 				tokens = append(tokens, Token{"ident", buffer})
 			}
