@@ -58,17 +58,6 @@ func lex_chars(ts *TextStream, tokens []Token) []Token {
 			buffer == "using" ||
 			buffer == "match" {
 			tokens = append(tokens, Token{"keyword", buffer})
-		} else if buffer == "f" && *ts.peek(0) == '"' {
-			ts.consume(1)
-			for *ts.peek(0) != '"' {
-				if *ts.peek(0) == '{' {
-					ts.consume(1)
-					// finish
-				} else {
-					buffer += string(*ts.peek(0))
-					ts.consume(1)
-				}
-			}
 		} else {
 			tokens = append(tokens, Token{"ident", buffer})
 		}
@@ -78,14 +67,33 @@ func lex_chars(ts *TextStream, tokens []Token) []Token {
 		tokens = append(tokens, Token{"equals", "="})
 	} else if char == '"' {
 		ts.consume(1)
-		for *ts.peek(0) != '"' {
-			fmt.Println(string(*ts.peek(0)))
-			buffer += string(*ts.peek(0))
-			ts.consume(1)
-		}
-		ts.consume(1)
-		tokens = append(tokens, Token{"string_lit", buffer})
+		tokens = append(tokens, Token{"string_start", ""})
 		buffer = ""
+		for *ts.peek(0) != '"' {
+			if *ts.peek(0) == '{' {
+				tokens = append(tokens, Token{"string_part", buffer})
+				buffer = ""
+				ts.consume(1)
+				for *ts.peek(0) != '}' {
+					tokens = lex_chars(ts, tokens)
+				}
+			} else if *ts.peek(0) == '\\' {
+				bf := *ts.peek(1)
+				if bf == 'f' || bf == 'n' || bf == 'r' || bf == 't' {
+					buffer += "\\" + string(bf)
+				} else {
+					buffer += string(bf)
+				}
+				ts.consume(2)
+			} else {
+				buffer += string(*ts.peek(0))
+				ts.consume(1)
+			}
+		}
+		tokens = append(tokens, Token{"string_part", buffer})
+		ts.consume(1)
+		tokens = append(tokens, Token{"string_end", ""})
+
 	} else if unicode.IsNumber(*ts.peek(0)) {
 		is_float := false
 		for unicode.IsNumber(*ts.peek(0)) || *ts.peek(0) == '_' || *ts.peek(0) == '.' {
@@ -94,6 +102,7 @@ func lex_chars(ts *TextStream, tokens []Token) []Token {
 					panic("Cannot have two dots in float literal.")
 				} else {
 					is_float = true
+					buffer += string(*ts.peek(0))
 				}
 				ts.consume(1)
 			}
@@ -114,12 +123,11 @@ func lex_chars(ts *TextStream, tokens []Token) []Token {
 		tokens = append(tokens, Token{"eol", "\\n"})
 		curr_indent := 0
 		ts.consume(1)
-		if ts.curr+1 >= len(ts.data) {
-			return tokens
-		}
-		for *ts.peek(0) == ' ' {
-			curr_indent++
-			ts.consume(1)
+		if ts.curr+1 < len(ts.data) {
+			for *ts.peek(0) == ' ' {
+				curr_indent++
+				ts.consume(1)
+			}
 		}
 		if curr_indent > indent_level {
 			tokens = append(tokens, Token{"indent", strconv.Itoa(curr_indent)})

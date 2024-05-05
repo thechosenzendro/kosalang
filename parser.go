@@ -32,7 +32,7 @@ type IntExpr struct {
 }
 
 type StringExpr struct {
-	value string
+	content []Expr
 }
 
 type AdditionExpr struct {
@@ -102,6 +102,14 @@ type UsingExpr struct {
 
 type PubExpr struct {
 	expr Expr
+}
+
+type FloatExpr struct {
+	float float64
+}
+
+type StringPart struct {
+	value string
 }
 
 type EmptyExpr struct{}
@@ -195,11 +203,20 @@ func parse_expr(tokens *Tokens) Expr {
 	}
 	if tokens.peek(0).token_type == "int_lit" {
 		return parse_int_lit(tokens)
-	} else if tokens.peek(0).token_type == "string_lit" {
-		text := StringExpr{tokens.peek(0).value}
+	} else if tokens.peek(0).token_type == "float_lit" {
+		return parse_float_lit(tokens)
+	} else if tokens.peek(0).token_type == "string_start" {
 		tokens.consume(1)
-		return text
-
+		expr := StringExpr{}
+		for tokens.peek(0).token_type != "string_end" {
+			expr.content = append(expr.content, parse_expr(tokens))
+		}
+		tokens.consume(1)
+		return expr
+	} else if tokens.peek(0).token_type == "string_part" {
+		expr := StringPart{tokens.peek(0).value}
+		tokens.consume(1)
+		return expr
 	} else if tokens.peek(0).token_type == "eol" {
 		expr := EmptyExpr{}
 		tokens.consume(1)
@@ -376,10 +393,10 @@ func parse_block(tokens *Tokens) Block {
 
 				var block Block
 				for {
-					for tokens.peek(0).token_type == "eol" {
+					for tokens.peek(0) != nil && tokens.peek(0).token_type == "eol" {
 						tokens.consume(1)
 					}
-					if tokens.peek(0).token_type == "dedent" && tokens.peek(0).value == indent_level {
+					if tokens.peek(0) != nil && tokens.peek(0).token_type == "dedent" && tokens.peek(0).value == indent_level {
 						tokens.consume(1)
 						break
 					}
@@ -579,4 +596,13 @@ func parse_math_expr(tokens *Tokens, min_prec int) (expr Expr, err error) {
 		}
 	}
 	return atom_lhs, nil
+}
+
+func parse_float_lit(tokens *Tokens) FloatExpr {
+	float, err := strconv.ParseFloat(tokens.peek(0).value, 64)
+	if err != nil {
+		panic(err)
+	}
+	tokens.consume(1)
+	return FloatExpr{float}
 }

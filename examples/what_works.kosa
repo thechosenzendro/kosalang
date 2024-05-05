@@ -61,3 +61,6 @@ bool is_active(bool status = false):
 match name:
     "Adam": "Mada"
     _: panic("Not a known name")
+
+# String formatting and escape sequences
+hello = "Hello \r {world}!"
