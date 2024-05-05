@@ -91,6 +91,7 @@ func lex_chars(ts *TextStream, tokens []Token) []Token {
 			}
 		}
 		tokens = append(tokens, Token{"string_part", buffer})
+		buffer = ""
 		ts.consume(1)
 		tokens = append(tokens, Token{"string_end", ""})
 
