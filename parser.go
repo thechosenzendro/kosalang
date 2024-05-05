@@ -112,7 +112,11 @@ type StringPart struct {
 	value string
 }
 
-type EmptyExpr struct{}
+type TableExpr struct {
+	entries []Expr
+}
+
+type EOF struct{}
 
 func (tks Tokens) peek(offset int) (token *Token) {
 	if tks.curr+offset < len(tks.tokens) {
@@ -217,10 +221,24 @@ func parse_expr(tokens *Tokens) Expr {
 		expr := StringPart{tokens.peek(0).value}
 		tokens.consume(1)
 		return expr
-	} else if tokens.peek(0).token_type == "eol" {
-		expr := EmptyExpr{}
+	} else if tokens.peek(0).token_type == "open_curly_bracket" {
+		bracket_level := tokens.peek(0).value
 		tokens.consume(1)
-		return expr
+		table_values := TableExpr{}
+		for {
+			if tokens.peek(0).token_type == "close_curly_bracket" && tokens.peek(0).value == bracket_level {
+				tokens.consume(1)
+				break
+			}
+
+		}
+	} else if tokens.peek(0).token_type == "eol" {
+		tokens.consume(1)
+		if tokens.curr >= len(tokens.tokens) {
+			return EOF{}
+		} else {
+			return parse_expr(tokens)
+		}
 
 	} else if tokens.peek(0).token_type == "ident" {
 		return parse_ident(tokens)
