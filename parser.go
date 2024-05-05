@@ -229,7 +229,7 @@ func parse_expr(tokens *Tokens) Expr {
 				else_block = parse_block(tokens)
 			}
 			return IfExpr{true_expr, true_block, else_block}
-		case "struct":
+		case "data":
 			// this doesnt handle the cases where the struct is anon
 			tokens.consume(1)
 			var struct_name string

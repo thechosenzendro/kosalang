@@ -37,19 +37,15 @@ add(1,2)
 concat = string (string a, string b): a + b
 hello = (sum(1,2)*(1+1))
 
-struct Person:
+data Person:
     string name
     int age
 
-Hello = struct:
+Hello = data:
     string name
 
 person = Person("Marek Pokorný", 15)
 
-# Extension function
-
-bool Article.is_recent(Article a):
-    true
 
 # Tabs are just four spaces
 string greeting():
