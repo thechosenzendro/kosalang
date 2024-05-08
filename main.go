@@ -19,7 +19,7 @@ func main() {
 
 	ast := parse(tokens)
 	fmt.Println("AST")
-	fmt.Printf("%#v\n", ast)
+	print_struct(ast)
 }
 
 type Token struct {

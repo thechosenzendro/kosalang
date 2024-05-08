@@ -156,6 +156,10 @@ func lex_chars(ts *TextStream, tokens []Token) []Token {
 		for *ts.peek(0) != '\n' {
 			ts.consume(1)
 		}
+	} else if char == '<' {
+		ts.consume(1)
+		tokens = append(tokens, Token{"open_angle_bracket", "<"})
+
 	} else if char == '+' {
 		ts.consume(1)
 		tokens = append(tokens, Token{"binop", "+"})
@@ -190,7 +194,7 @@ func lex_chars(ts *TextStream, tokens []Token) []Token {
 		ts.consume(1)
 		tokens = append(tokens, Token{"close_curly_bracket", strconv.Itoa(curly_bracket_levels)})
 		curly_bracket_levels--
-	} else {
+	} else if char == ' ' else {
 		panic(fmt.Sprintf("Unexpected token: %s", string(char)))
 	}
 	return tokens

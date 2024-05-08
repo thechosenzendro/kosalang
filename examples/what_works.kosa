@@ -37,7 +37,7 @@ add(1,2)
 concat = string (string a, string b): a + b
 hello = (sum(1,2)*(1+1))
 
-data Person:
+pub data Person:
     string name
     int age
 
@@ -64,3 +64,11 @@ match name:
 
 # String formatting and escape sequences
 hello = "Hello \r {world}!"
+
+# Tables
+list = [1, 2, 3]
+dict = {
+    "hello": "world",
+    "foo": "bar" 
+}
+for(articles, html (Article article): <Article>article.body</Article>)

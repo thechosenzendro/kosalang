@@ -1,8 +1,10 @@
-using jellyserve.{Connection, Response, Path}, sqlite3
+using jellyserve
+using jellyserve.(Connection, Response, Path), sqlite3
+using enum.(map)
 
 db = sqlite3.connect("dev.db")?
 
-struct Article:
+data Article:
 	int id
 	string name
 	html content
@@ -15,9 +17,7 @@ html ArticleView(Article article):
 
 html or error index(Connection conn):
 	articles = db.query("SELECT * FROM articles;")?.to(Article)?
-
-	for article in articles:
-		<ArticleView article=article />
+	map(articles, html(Article article): <ArticleView article=article />)
 
 Connection router(Path path, Connection conn):
 	case path:
@@ -25,4 +25,4 @@ Connection router(Path path, Connection conn):
 
 app = jellyserve.new(router: router)
 
-app.serve(8080)
+jellyserve.serve(app, 8080)

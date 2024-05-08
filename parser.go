@@ -113,7 +113,7 @@ type StringPart struct {
 }
 
 type TableExpr struct {
-	entries []Expr
+	entries []TableEntry
 }
 
 type EOF struct{}
@@ -226,20 +226,39 @@ func parse_expr(tokens *Tokens) Expr {
 		tokens.consume(1)
 		table_values := TableExpr{}
 		for {
+			for tokens.peek(0).token_type == "eol" || tokens.peek(0).token_type == "comma" || tokens.peek(0).token_type == "indent" || tokens.peek(0).token_type == "dedent" {
+				tokens.consume(1)
+			}
 			if tokens.peek(0).token_type == "close_curly_bracket" && tokens.peek(0).value == bracket_level {
 				tokens.consume(1)
 				break
 			}
 
+			table_values.entries = append(table_values.entries, parse_table_entry(tokens))
 		}
-	} else if tokens.peek(0).token_type == "eol" {
-		tokens.consume(1)
-		if tokens.curr >= len(tokens.tokens) {
-			return EOF{}
-		} else {
-			return parse_expr(tokens)
+		has_indexes := false
+		for i, table_value := range table_values.entries {
+			if i == 0 {
+				if table_value.index != nil {
+					has_indexes = true
+				} else {
+					table_values.entries[i].index = IntExpr{i}
+				}
+				continue
+			}
+			if table_value.index == nil {
+				if !has_indexes {
+					table_values.entries[i].index = IntExpr{i}
+				} else {
+					panic("Do not mix!")
+				}
+			} else {
+				if !has_indexes {
+					panic("Do not mix!")
+				}
+			}
 		}
-
+		return table_values
 	} else if tokens.peek(0).token_type == "ident" {
 		return parse_ident(tokens)
 	} else if keyword(tokens.peek(0)) {
@@ -350,8 +369,31 @@ func parse_expr(tokens *Tokens) Expr {
 			}
 			return MatchExpr{matchee, matchers, &_default}
 		}
+	} else if tokens.peek(0).token_type == "eol" {
+		tokens.consume(1)
+		if tokens.curr >= len(tokens.tokens) {
+			return EOF{}
+		} else {
+			return parse_expr(tokens)
+		}
 	}
 	panic(fmt.Sprintln("Cannot convert token", tokens.peek(0)))
+}
+
+func parse_table_entry(tokens *Tokens) TableEntry {
+	index := parse_expr(tokens)
+	if tokens.peek(0).token_type == "colon" {
+		tokens.consume(1)
+		value := parse_expr(tokens)
+		return TableEntry{&index, value}
+	} else {
+		return TableEntry{nil, index}
+	}
+}
+
+type TableEntry struct {
+	index Expr
+	value Expr
 }
 
 type MatchExpr struct {
