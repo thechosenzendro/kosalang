@@ -1,0 +1,9 @@
+# A comment!
+hello = 1
+hello_world = 2
+
+my_float = -1.2
+
+my_assignment = -3
+
+my_expr = (1 + 1) * 4
