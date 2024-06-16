@@ -1,0 +1,19 @@
+using io.log.(x, y)
+
+pub add(x: 1, y: 2): x + y
+pub z: 1
+
+io.log(add(2, 3) + z)
+
+@docs: "Hello World!"
+@deprecated
+impure print(f): io.log(f)
+pure: None
+
+person(x):
+	{
+		x: "Hello World {x}"
+	}
+
+y: person(1)
+io.log(y.x)
